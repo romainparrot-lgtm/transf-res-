@@ -155,7 +155,7 @@ function start(){
 }
 function tryConnect(){
   if(!peer||!peer.open||!partner||(conn&&conn.open))return;
-  attach(peer.connect(PFX+partner,{reliable:true}),false);
+  attach(peer.connect(PFX+partner,{reliable:true,serialization:"raw"}),false);
 }
 setInterval(function(){if(!document.hidden)tryConnect()},6000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden)tryConnect()});
@@ -167,9 +167,13 @@ function onIncoming(c){
 function attach(c,incoming){
   var known=!!partner&&c.peer===PFX+partner;
   c.on("open",function(){
-    if(known||(pairing&&c.peer===PFX+pairing)){ if(!known)c.send({t:"hello"}); if(known){conn=c;render()} }
+    if(known||(pairing&&c.peer===PFX+pairing)){ if(!known)tx(c,{t:"hello"}); if(known){conn=c;render()} }
   });
-  c.on("data",function(m){onData(c,m,incoming)});
+  c.on("data",function(m){
+    if(typeof m==="string"){try{m=JSON.parse(m)}catch(e){return}onData(c,m,incoming);return}
+    var r=c._cur&&rx[c._cur];
+    if(r&&m&&m.byteLength!=null){r.parts.push(m);r.crc=crcUp(r.crc,new Uint8Array(m))}
+  });
   c.on("close",function(){if(conn===c){conn=null}render()});
   c.on("error",function(){});
 }
@@ -205,25 +209,26 @@ function addReceived(name,blob,crc){
   recv.push({name:name,blob:blob,crc:crc,url:url,li:li});
   $("gotbar").hidden=false;$("zipall").textContent="Tout télécharger ("+recv.length+" fichier"+(recv.length>1?"s":"")+", .zip)";
 }
+function tx(c,o){c.send(JSON.stringify(o))}
 function wait(ms){return new Promise(function(r){setTimeout(r,ms)})}
 async function sendBatch(c,id){
-  var rows=sends[id].rows,CH=12000,BLK=1048576;
+  var rows=sends[id].rows,CH=16000,BLK=1048576;
   for(var i=0;i<rows.length;i++){
     var row=rows[i],f=row.file;
     try{
       if(!c.open)throw 0;
-      c.send({t:"start",id:id,i:i,name:f.name,type:f.type});
+      tx(c,{t:"start",id:id,i:i,name:f.name,type:f.type});
       var dc=c.dataChannel;
       for(var off=0;off<f.size;off+=BLK){
         var buf=await f.slice(off,off+BLK).arrayBuffer();
         for(var p=0;p<buf.byteLength;p+=CH){
           while(dc&&dc.bufferedAmount>1048576){if(!c.open)throw 0;await wait(25)}
           if(!c.open)throw 0;
-          c.send({t:"chunk",id:id,i:i,d:buf.slice(p,p+CH)});
+          c.send(buf.slice(p,p+CH));
         }
         row.st.textContent="Envoi… "+Math.round(Math.min(off+BLK,f.size)/f.size*100)+" %";
       }
-      c.send({t:"end",id:id,i:i});
+      tx(c,{t:"end",id:id,i:i});
       row.st.textContent="Envoyé, en attente de confirmation…";
     }catch(e){
       for(var j=i;j<rows.length;j++)rows[j].st.textContent="Interrompu : renvoie ce fichier";
@@ -236,7 +241,7 @@ function onData(c,m,incoming){
   var known=!!partner&&c.peer===PFX+partner;
   if(m.t==="hello"&&!partner&&incoming){
     ask("Associer cet appareil ?","Un appareil demande à s’associer avec celui-ci. Accepte seulement si c’est le tien.","Associer","Refuser").then(function(v){
-      if(v){partner=c.peer.slice(PFX.length);sset("td_partner",partner);conn=c;c.send({t:"paired"});render()}
+      if(v){partner=c.peer.slice(PFX.length);sset("td_partner",partner);conn=c;tx(c,{t:"paired"});render()}
       else c.close();
     });return;
   }
@@ -246,17 +251,16 @@ function onData(c,m,incoming){
     var tot=0;m.files.forEach(function(f){tot+=f.s});
     var label=m.files.length===1?m.files[0].n:m.files.length+" fichiers";
     ask("Fichiers entrants",label+" ("+size(tot)+")","Accepter","Refuser").then(function(v){
-      if(c.open)c.send({t:v?"yes":"no",id:m.id});
+      if(c.open)tx(c,{t:v?"yes":"no",id:m.id});
     });
   }else if(m.t==="yes"&&sends[m.id]){sendBatch(c,m.id)}
   else if(m.t==="no"&&sends[m.id]){sends[m.id].rows.forEach(function(r){r.st.textContent="Refusé par l’autre appareil"})}
   else if(m.t==="got"&&sends[m.id]&&sends[m.id].rows[m.i]){sends[m.id].rows[m.i].st.textContent="Envoyé ✓"}
-  else if(m.t==="start"){rx[m.id+"/"+m.i]={name:m.name,type:m.type,parts:[],crc:0xFFFFFFFF}}
-  else if(m.t==="chunk"){var r=rx[m.id+"/"+m.i];if(r){r.parts.push(m.d);r.crc=crcUp(r.crc,new Uint8Array(m.d))}}
+  else if(m.t==="start"){c._cur=m.id+"/"+m.i;rx[c._cur]={name:m.name,type:m.type,parts:[],crc:0xFFFFFFFF}}
   else if(m.t==="end"){
-    var k=m.id+"/"+m.i,r2=rx[k];if(!r2)return;delete rx[k];
+    var k=m.id+"/"+m.i,r2=rx[k];if(!r2)return;delete rx[k];c._cur=null;
     addReceived(r2.name,new Blob(r2.parts,{type:r2.type||"application/octet-stream"}),(r2.crc^0xFFFFFFFF)>>>0);
-    if(c.open)c.send({t:"got",id:m.id,i:m.i});
+    if(c.open)tx(c,{t:"got",id:m.id,i:m.i});
   }
 }
 
@@ -266,7 +270,7 @@ $("pairbtn").onclick=function(){
   if(c===myCode){err("C’est le code de cet appareil : saisis celui de l’autre.");return}
   if(!peer||!peer.open){err("Connexion au service en cours, réessaie dans un instant.");return}
   err("");pairing=c;$("state").textContent="Demande envoyée : accepte-la sur l’autre appareil…";
-  attach(peer.connect(PFX+c,{reliable:true}),false);
+  attach(peer.connect(PFX+c,{reliable:true,serialization:"raw"}),false);
 };
 $("forget").onclick=function(){
   ask("Oublier l’autre appareil ?","Il faudra refaire l’association avec le code.","Oublier","Annuler").then(function(v){
@@ -299,7 +303,7 @@ $("file").onchange=function(e){
     return {file:f,st:st};
   });
   sends[id]={rows:rows};
-  conn.send({t:"offer",id:id,files:fs.map(function(f){return {n:f.name,s:f.size}})});
+  tx(conn,{t:"offer",id:id,files:fs.map(function(f){return {n:f.name,s:f.size}})});
 };
 $("pick").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();$("file").click()}};
 try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}
