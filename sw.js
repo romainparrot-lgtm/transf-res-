@@ -1,6 +1,6 @@
 // Transfert direct : mode hors ligne (affichage de la page).
-// Pour publier une nouvelle version, change le numéro ci-dessous (v1 -> v2...).
-const CACHE = 'transfert-v1';
+// Pour publier une nouvelle version, change le numéro ci-dessous (v3 -> v4...).
+const CACHE = 'transfert-v3';
 const FILES = ['./', './index.html', './manifest.json',
   './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 

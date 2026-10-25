@@ -87,6 +87,7 @@ li button{padding:8px 12px;flex:0 0 auto}
 <div class="card">
   <h2>Reçus</h2>
   <p class="empty" id="noreceived">Rien reçu pour l’instant. Télécharge chaque fichier avant de fermer la page : il disparaît à la fermeture.</p>
+  <div class="row" id="gotbar" hidden><button id="zipall">Tout télécharger (.zip)</button><button class="sec" id="clearall">Vider la liste</button></div>
   <ul id="got"></ul>
 </div>
 </main>
@@ -111,7 +112,7 @@ function size(n){return n<1e6?Math.max(1,Math.round(n/1e3))+" Ko":(n/1e6).toFixe
 
 var myCode=sget("td_my");if(!myCode){myCode=gen();sset("td_my",myCode)}
 var partner=sget("td_partner");
-var peer=null,conn=null,pairing=null,sends={},q=Promise.resolve();
+var peer=null,conn=null,pairing=null,sends={},rx={},q=Promise.resolve();
 $("mycode").textContent=fmt(myCode);
 
 function render(){
@@ -172,6 +173,64 @@ function attach(c,incoming){
   c.on("close",function(){if(conn===c){conn=null}render()});
   c.on("error",function(){});
 }
+/*ZIP*/
+var CRC_T=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crcUp(c,u8){for(var i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return c>>>0}
+function hdr(len,fn){var b=new ArrayBuffer(len);fn(new DataView(b));return b}
+function buildZip(list){
+  var parts=[],cd=[],off=0,used={},enc=new TextEncoder(),n=new Date();
+  var T=(n.getHours()<<11)|(n.getMinutes()<<5)|(n.getSeconds()>>1),D=((n.getFullYear()-1980)<<9)|((n.getMonth()+1)<<5)|n.getDate();
+  var cdsize=0;
+  list.forEach(function(r){
+    var nm=r.name.replace(/[\\\/:*?"<>|]/g,"_"),k=nm,i=1;
+    while(used[k]){i++;var dot=nm.lastIndexOf(".");k=dot>0?nm.slice(0,dot)+" ("+i+")"+nm.slice(dot):nm+" ("+i+")"}
+    used[k]=1;
+    var nb=enc.encode(k),sz=r.blob.size;
+    parts.push(hdr(30,function(d){d.setUint32(0,0x04034b50,true);d.setUint16(4,20,true);d.setUint16(6,0x0800,true);d.setUint16(8,0,true);d.setUint16(10,T,true);d.setUint16(12,D,true);d.setUint32(14,r.crc,true);d.setUint32(18,sz,true);d.setUint32(22,sz,true);d.setUint16(26,nb.length,true);d.setUint16(28,0,true)}),nb,r.blob);
+    var h=hdr(46,function(d){d.setUint32(0,0x02014b50,true);d.setUint16(4,20,true);d.setUint16(6,20,true);d.setUint16(8,0x0800,true);d.setUint16(10,0,true);d.setUint16(12,T,true);d.setUint16(14,D,true);d.setUint32(16,r.crc,true);d.setUint32(20,sz,true);d.setUint32(24,sz,true);d.setUint16(28,nb.length,true);d.setUint32(42,off,true)});
+    cd.push(h,nb);cdsize+=46+nb.length;off+=30+nb.length+sz;
+  });
+  var end=hdr(22,function(d){d.setUint32(0,0x06054b50,true);d.setUint16(8,list.length,true);d.setUint16(10,list.length,true);d.setUint32(12,cdsize,true);d.setUint32(16,off,true)});
+  return new Blob(parts.concat(cd,[end]),{type:"application/zip"});
+}
+/*ENDZIP*/
+var recv=[];
+function addReceived(name,blob,crc){
+  var url=URL.createObjectURL(blob);
+  var li=document.createElement("li"),nm=document.createElement("span"),b=document.createElement("button"),sm=document.createElement("small");
+  nm.className="nm";nm.textContent=name;sm.textContent=size(blob.size);nm.appendChild(sm);
+  b.textContent="Télécharger";
+  b.onclick=function(){var a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove()};
+  li.appendChild(nm);li.appendChild(b);$("got").insertBefore(li,$("got").firstChild);$("noreceived").hidden=true;
+  recv.push({name:name,blob:blob,crc:crc,url:url,li:li});
+  $("gotbar").hidden=false;$("zipall").textContent="Tout télécharger ("+recv.length+" fichier"+(recv.length>1?"s":"")+", .zip)";
+}
+function wait(ms){return new Promise(function(r){setTimeout(r,ms)})}
+async function sendBatch(c,id){
+  var rows=sends[id].rows,CH=12000,BLK=1048576;
+  for(var i=0;i<rows.length;i++){
+    var row=rows[i],f=row.file;
+    try{
+      if(!c.open)throw 0;
+      c.send({t:"start",id:id,i:i,name:f.name,type:f.type});
+      var dc=c.dataChannel;
+      for(var off=0;off<f.size;off+=BLK){
+        var buf=await f.slice(off,off+BLK).arrayBuffer();
+        for(var p=0;p<buf.byteLength;p+=CH){
+          while(dc&&dc.bufferedAmount>1048576){if(!c.open)throw 0;await wait(25)}
+          if(!c.open)throw 0;
+          c.send({t:"chunk",id:id,i:i,d:buf.slice(p,p+CH)});
+        }
+        row.st.textContent="Envoi… "+Math.round(Math.min(off+BLK,f.size)/f.size*100)+" %";
+      }
+      c.send({t:"end",id:id,i:i});
+      row.st.textContent="Envoyé, en attente de confirmation…";
+    }catch(e){
+      for(var j=i;j<rows.length;j++)rows[j].st.textContent="Interrompu : renvoie ce fichier";
+      return;
+    }
+  }
+}
 function onData(c,m,incoming){
   if(!m||!m.t)return;
   var known=!!partner&&c.peer===PFX+partner;
@@ -184,22 +243,20 @@ function onData(c,m,incoming){
   if(m.t==="paired"&&pairing&&c.peer===PFX+pairing){partner=pairing;pairing=null;sset("td_partner",partner);conn=c;err("");render();return}
   if(!known)return;
   if(m.t==="offer"){
-    ask("Fichier entrant",m.name+" ("+size(m.size)+")","Accepter","Refuser").then(function(v){
+    var tot=0;m.files.forEach(function(f){tot+=f.s});
+    var label=m.files.length===1?m.files[0].n:m.files.length+" fichiers";
+    ask("Fichiers entrants",label+" ("+size(tot)+")","Accepter","Refuser").then(function(v){
       if(c.open)c.send({t:v?"yes":"no",id:m.id});
     });
-  }else if(m.t==="yes"&&sends[m.id]){
-    var s=sends[m.id];s.st.textContent="Envoi en cours…";
-    s.file.arrayBuffer().then(function(buf){c.send({t:"file",id:m.id,name:s.file.name,type:s.file.type,data:buf})})
-      .catch(function(){s.st.textContent="Échec de l’envoi"});
-  }else if(m.t==="no"&&sends[m.id]){sends[m.id].st.textContent="Refusé par l’autre appareil"}
-  else if(m.t==="got"&&sends[m.id]){sends[m.id].st.textContent="Envoyé ✓"}
-  else if(m.t==="file"){
-    var url=URL.createObjectURL(new Blob([m.data],{type:m.type||"application/octet-stream"}));
-    var li=document.createElement("li"),nm=document.createElement("span"),b=document.createElement("button");
-    nm.className="nm";nm.textContent=m.name;var sm=document.createElement("small");sm.textContent=size(m.data.byteLength||m.data.size||0);nm.appendChild(sm);
-    b.textContent="Télécharger";b.onclick=function(){var a=document.createElement("a");a.href=url;a.download=m.name;document.body.appendChild(a);a.click();a.remove()};
-    li.appendChild(nm);li.appendChild(b);$("got").insertBefore(li,$("got").firstChild);$("noreceived").hidden=true;
-    if(c.open)c.send({t:"got",id:m.id});
+  }else if(m.t==="yes"&&sends[m.id]){sendBatch(c,m.id)}
+  else if(m.t==="no"&&sends[m.id]){sends[m.id].rows.forEach(function(r){r.st.textContent="Refusé par l’autre appareil"})}
+  else if(m.t==="got"&&sends[m.id]&&sends[m.id].rows[m.i]){sends[m.id].rows[m.i].st.textContent="Envoyé ✓"}
+  else if(m.t==="start"){rx[m.id+"/"+m.i]={name:m.name,type:m.type,parts:[],crc:0xFFFFFFFF}}
+  else if(m.t==="chunk"){var r=rx[m.id+"/"+m.i];if(r){r.parts.push(m.d);r.crc=crcUp(r.crc,new Uint8Array(m.d))}}
+  else if(m.t==="end"){
+    var k=m.id+"/"+m.i,r2=rx[k];if(!r2)return;delete rx[k];
+    addReceived(r2.name,new Blob(r2.parts,{type:r2.type||"application/octet-stream"}),(r2.crc^0xFFFFFFFF)>>>0);
+    if(c.open)c.send({t:"got",id:m.id,i:m.i});
   }
 }
 
@@ -216,17 +273,33 @@ $("forget").onclick=function(){
     if(v){partner="";sset("td_partner","");if(conn){try{conn.close()}catch(e){}conn=null}render()}
   });
 };
+$("zipall").onclick=function(){
+  var tot=0;recv.forEach(function(r){tot+=r.blob.size});
+  if(tot>3.9e9){err("Plus de 4 Go reçus : télécharge-les en plusieurs fois (vide la liste entre les deux).");return}
+  err("");var d=new Date(),p=function(x){return (x<10?"0":"")+x};
+  var a=document.createElement("a");a.href=URL.createObjectURL(buildZip(recv));
+  a.download="fichiers-recus-"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+".zip";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},120000);
+};
+$("clearall").onclick=function(){
+  ask("Vider la liste ?","Les fichiers reçus seront supprimés de la page. Assure-toi de les avoir téléchargés.","Vider","Annuler").then(function(v){
+    if(!v)return;
+    recv.forEach(function(r){URL.revokeObjectURL(r.url);r.li.remove()});recv=[];
+    $("gotbar").hidden=true;$("noreceived").hidden=false;
+  });
+};
 $("file").onchange=function(e){
   var fs=Array.prototype.slice.call(e.target.files);e.target.value="";
-  if(!(conn&&conn.open))return;
-  fs.forEach(function(f){
-    var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    var li=document.createElement("li"),nm=document.createElement("span");
-    nm.className="nm";nm.textContent=f.name;var st=document.createElement("small");st.textContent="En attente de l’acceptation…";nm.appendChild(st);
-    li.appendChild(nm);$("sent").insertBefore(li,$("sent").firstChild);
-    sends[id]={file:f,st:st};
-    conn.send({t:"offer",id:id,name:f.name,size:f.size});
+  if(!fs.length||!(conn&&conn.open))return;
+  var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  var rows=fs.map(function(f){
+    var li=document.createElement("li"),nm=document.createElement("span"),st=document.createElement("small");
+    nm.className="nm";nm.textContent=f.name;st.textContent="En attente de l’acceptation…";nm.appendChild(st);
+    li.appendChild(nm);$("sent").appendChild(li);
+    return {file:f,st:st};
   });
+  sends[id]={rows:rows};
+  conn.send({t:"offer",id:id,files:fs.map(function(f){return {n:f.name,s:f.size}})});
 };
 $("pick").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();$("file").click()}};
 try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}
