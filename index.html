@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1a26">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Transfert">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Transfert direct</title>
+<style>
+:root{--bg:#eef2f6;--card:#fff;--tx:#14202c;--mut:#5c6b7a;--line:#d6dee6;--acc:#0b8f84;--accbg:#dff3f0;--warn:#b86e00;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a26;--card:#152433;--tx:#e8eef4;--mut:#93a4b5;--line:#25384b;--acc:#38d0c0;--accbg:#12342f;--warn:#ffb84d}}
+:root[data-theme="dark"]{--bg:#0e1a26;--card:#152433;--tx:#e8eef4;--mut:#93a4b5;--line:#25384b;--acc:#38d0c0;--accbg:#12342f;--warn:#ffb84d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif}
+main{max-width:560px;margin:0 auto;padding:18px 16px 48px}
+h1{font-size:24px;margin:4px 0 14px;letter-spacing:-.01em}
+h2{font-size:17px;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:0 0 14px}
+.link{display:flex;align-items:center;gap:10px;margin:2px 0 6px}
+.dev{flex:0 0 auto;font-weight:650;font-size:15px;padding:8px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg)}
+.wire{flex:1;height:0;border-top:3px dashed var(--line);position:relative}
+.on .wire{border-top:3px solid var(--acc)}
+.on .dev.other{border-color:var(--acc);background:var(--accbg)}
+.state{color:var(--mut);font-size:14px;margin:0}
+.on .state{color:var(--acc);font-weight:600}
+.code{font:700 22px ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;margin:6px 0;word-break:break-all}
+input[type=text]{width:100%;font:inherit;font-size:18px;padding:11px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--tx);text-transform:uppercase}
+button,.btn{font:inherit;font-weight:650;border:0;border-radius:12px;padding:11px 16px;background:var(--acc);color:#04201d;cursor:pointer;display:inline-block;text-align:center}
+button.sec,.btn.sec{background:transparent;color:var(--tx);border:1.5px solid var(--line)}
+button:disabled,.btn.off{opacity:.45;pointer-events:none}
+button:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.row>*{flex:1 1 auto}
+ul{list-style:none;margin:8px 0 0;padding:0}
+li{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+li .nm{flex:1;min-width:0;overflow-wrap:anywhere}
+li small{display:block;color:var(--mut)}
+li button{padding:8px 12px;flex:0 0 auto}
+.empty{color:var(--mut);font-size:14px;margin:6px 0 0}
+.hint{color:var(--mut);font-size:13px;margin:8px 0 0}
+#err{color:var(--warn);font-size:14px;margin:6px 0 0}
+#ov{position:fixed;inset:0;background:rgba(5,12,20,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:9}
+#ov.on{display:flex}
+#dlg{background:var(--card);border-radius:18px;padding:20px;max-width:380px;width:100%;border:1px solid var(--line)}
+#dlg p{margin:0 0 4px;overflow-wrap:anywhere}
+#dlg .t{font-weight:700;font-size:18px}
+@media (prefers-reduced-motion:no-preference){.on .wire{transition:border-color .3s}}
+</style>
+</head>
+<body>
+<main>
+<h1>Transfert direct</h1>
+
+<div class="card" id="linkcard">
+  <div class="link"><span class="dev" id="me">Cet appareil</span><span class="wire"></span><span class="dev other" id="other">Autre appareil</span></div>
+  <p class="state" id="state">Démarrage…</p>
+  <p id="err"></p>
+</div>
+
+<div class="card" id="pair">
+  <h2>Associer les deux appareils</h2>
+  <p class="state">Code de cet appareil :</p>
+  <div class="code" id="mycode"></div>
+  <div id="pairform">
+    <p class="state">À faire une seule fois : tape ici le code affiché sur l’autre appareil.</p>
+    <div class="row"><input type="text" id="codein" placeholder="Code de l’autre appareil" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="pairbtn">Associer</button></div>
+  </div>
+  <div id="paired" hidden>
+    <p class="state">Appareils associés. Ouvre cette page sur les deux, ils se retrouvent seuls.</p>
+    <div class="row"><button class="sec" id="forget">Oublier l’autre appareil</button></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Envoyer</h2>
+  <label class="btn off" id="pick" for="file" tabindex="0">Choisir des fichiers</label>
+  <input type="file" id="file" multiple hidden>
+  <ul id="sent"></ul>
+  <p class="hint">L’autre appareil doit accepter chaque fichier. Évite les fichiers de plus de 200 Mo.</p>
+</div>
+
+<div class="card">
+  <h2>Reçus</h2>
+  <p class="empty" id="noreceived">Rien reçu pour l’instant. Télécharge chaque fichier avant de fermer la page : il disparaît à la fermeture.</p>
+  <ul id="got"></ul>
+</div>
+</main>
+
+<div id="ov" role="dialog" aria-modal="true"><div id="dlg">
+  <p class="t" id="dt"></p><p id="dx"></p>
+  <div class="row"><button class="sec" id="dno">Refuser</button><button id="dyes">Accepter</button></div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+window.onerror=function(m,u,l){var e=document.getElementById("err");if(e)e.textContent="Erreur : "+m+" (ligne "+l+")"};
+(function(){
+var $=function(i){return document.getElementById(i)};
+function sget(k){try{return localStorage.getItem(k)||""}catch(e){return ""}}
+function sset(k,v){try{if(v)localStorage.setItem(k,v);else localStorage.removeItem(k)}catch(e){}}
+var AL="ABCDEFGHJKMNPQRSTUVWXYZ23456789",PFX="tdirect-";
+function gen(){var r=crypto.getRandomValues(new Uint8Array(10)),s="";for(var i=0;i<10;i++)s+=AL[r[i]%AL.length];return s}
+function norm(s){return (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}
+function fmt(c){return c?c.slice(0,5)+"-"+c.slice(5):""}
+function size(n){return n<1e6?Math.max(1,Math.round(n/1e3))+" Ko":(n/1e6).toFixed(1)+" Mo"}
+
+var myCode=sget("td_my");if(!myCode){myCode=gen();sset("td_my",myCode)}
+var partner=sget("td_partner");
+var peer=null,conn=null,pairing=null,sends={},q=Promise.resolve();
+$("mycode").textContent=fmt(myCode);
+
+function render(){
+  var ok=!!(conn&&conn.open);
+  $("linkcard").classList.toggle("on",ok);
+  $("pairform").hidden=!!partner;$("paired").hidden=!partner;
+  $("pick").classList.toggle("off",!ok);
+  var s;
+  if(!peer||peer.disconnected&&!peer.open)s="Connexion au service…";
+  else if(ok)s="Connecté à l’autre appareil.";
+  else if(partner)s="En attente de l’autre appareil (ouvre la page dessus).";
+  else s="Prêt à associer.";
+  $("state").textContent=s;
+}
+function err(m){$("err").textContent=m||""}
+
+function ask(title,text,yes,no){
+  q=q.then(function(){return new Promise(function(res){
+    $("dt").textContent=title;$("dx").textContent=text;$("dyes").textContent=yes||"Accepter";$("dno").textContent=no||"Refuser";
+    $("ov").classList.add("on");$("dyes").focus();
+    function end(v){$("ov").classList.remove("on");$("dyes").onclick=$("dno").onclick=null;res(v)}
+    $("dyes").onclick=function(){end(true)};$("dno").onclick=function(){end(false)};
+  })});
+  return q;
+}
+
+function start(){
+  if(typeof Peer==="undefined"){err("Connexion internet nécessaire pour charger le service de mise en relation.");return}
+  peer=new Peer(PFX+myCode);
+  peer.on("open",function(){err("");render();tryConnect()});
+  peer.on("connection",onIncoming);
+  peer.on("disconnected",function(){render();try{peer.reconnect()}catch(e){}});
+  peer.on("error",function(e){
+    if(e.type==="unavailable-id"){try{peer.destroy()}catch(x){}peer=null;setTimeout(start,4000)}
+    else if(e.type==="peer-unavailable"){if(pairing){err("Code introuvable : l’autre appareil doit être ouvert sur cette page.");pairing=null}}
+    else if(e.type==="network"||e.type==="server-error"||e.type==="socket-error"||e.type==="socket-closed"){err("Service de mise en relation injoignable, nouvelle tentative…")}
+    render();
+  });
+  render();
+}
+function tryConnect(){
+  if(!peer||!peer.open||!partner||(conn&&conn.open))return;
+  attach(peer.connect(PFX+partner,{reliable:true}),false);
+}
+setInterval(function(){if(!document.hidden)tryConnect()},6000);
+document.addEventListener("visibilitychange",function(){if(!document.hidden)tryConnect()});
+
+function onIncoming(c){
+  if(partner&&c.peer!==PFX+partner){c.on("open",function(){c.close()});return}
+  attach(c,true);
+}
+function attach(c,incoming){
+  var known=!!partner&&c.peer===PFX+partner;
+  c.on("open",function(){
+    if(known||(pairing&&c.peer===PFX+pairing)){ if(!known)c.send({t:"hello"}); if(known){conn=c;render()} }
+  });
+  c.on("data",function(m){onData(c,m,incoming)});
+  c.on("close",function(){if(conn===c){conn=null}render()});
+  c.on("error",function(){});
+}
+function onData(c,m,incoming){
+  if(!m||!m.t)return;
+  var known=!!partner&&c.peer===PFX+partner;
+  if(m.t==="hello"&&!partner&&incoming){
+    ask("Associer cet appareil ?","Un appareil demande à s’associer avec celui-ci. Accepte seulement si c’est le tien.","Associer","Refuser").then(function(v){
+      if(v){partner=c.peer.slice(PFX.length);sset("td_partner",partner);conn=c;c.send({t:"paired"});render()}
+      else c.close();
+    });return;
+  }
+  if(m.t==="paired"&&pairing&&c.peer===PFX+pairing){partner=pairing;pairing=null;sset("td_partner",partner);conn=c;err("");render();return}
+  if(!known)return;
+  if(m.t==="offer"){
+    ask("Fichier entrant",m.name+" ("+size(m.size)+")","Accepter","Refuser").then(function(v){
+      if(c.open)c.send({t:v?"yes":"no",id:m.id});
+    });
+  }else if(m.t==="yes"&&sends[m.id]){
+    var s=sends[m.id];s.st.textContent="Envoi en cours…";
+    s.file.arrayBuffer().then(function(buf){c.send({t:"file",id:m.id,name:s.file.name,type:s.file.type,data:buf})})
+      .catch(function(){s.st.textContent="Échec de l’envoi"});
+  }else if(m.t==="no"&&sends[m.id]){sends[m.id].st.textContent="Refusé par l’autre appareil"}
+  else if(m.t==="got"&&sends[m.id]){sends[m.id].st.textContent="Envoyé ✓"}
+  else if(m.t==="file"){
+    var url=URL.createObjectURL(new Blob([m.data],{type:m.type||"application/octet-stream"}));
+    var li=document.createElement("li"),nm=document.createElement("span"),b=document.createElement("button");
+    nm.className="nm";nm.textContent=m.name;var sm=document.createElement("small");sm.textContent=size(m.data.byteLength||m.data.size||0);nm.appendChild(sm);
+    b.textContent="Télécharger";b.onclick=function(){var a=document.createElement("a");a.href=url;a.download=m.name;document.body.appendChild(a);a.click();a.remove()};
+    li.appendChild(nm);li.appendChild(b);$("got").insertBefore(li,$("got").firstChild);$("noreceived").hidden=true;
+    if(c.open)c.send({t:"got",id:m.id});
+  }
+}
+
+$("pairbtn").onclick=function(){
+  var c=norm($("codein").value);
+  if(c.length!==10){err("Le code a 10 caractères.");return}
+  if(c===myCode){err("C’est le code de cet appareil : saisis celui de l’autre.");return}
+  if(!peer||!peer.open){err("Connexion au service en cours, réessaie dans un instant.");return}
+  err("");pairing=c;$("state").textContent="Demande envoyée : accepte-la sur l’autre appareil…";
+  attach(peer.connect(PFX+c,{reliable:true}),false);
+};
+$("forget").onclick=function(){
+  ask("Oublier l’autre appareil ?","Il faudra refaire l’association avec le code.","Oublier","Annuler").then(function(v){
+    if(v){partner="";sset("td_partner","");if(conn){try{conn.close()}catch(e){}conn=null}render()}
+  });
+};
+$("file").onchange=function(e){
+  var fs=Array.prototype.slice.call(e.target.files);e.target.value="";
+  if(!(conn&&conn.open))return;
+  fs.forEach(function(f){
+    var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    var li=document.createElement("li"),nm=document.createElement("span");
+    nm.className="nm";nm.textContent=f.name;var st=document.createElement("small");st.textContent="En attente de l’acceptation…";nm.appendChild(st);
+    li.appendChild(nm);$("sent").insertBefore(li,$("sent").firstChild);
+    sends[id]={file:f,st:st};
+    conn.send({t:"offer",id:id,name:f.name,size:f.size});
+  });
+};
+$("pick").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();$("file").click()}};
+try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}
+start();
+})();
+</script>
+</body>
+</html>
