@@ -1,8 +1,8 @@
 // Transfert direct : mode hors ligne (affichage de la page).
-// Pour publier une nouvelle version, change le numéro ci-dessous (v4 -> v5...).
-const CACHE = 'transfert-v4';
+// Pour publier une nouvelle version, change le numéro ci-dessous (v7 -> v8...).
+const CACHE = 'transfert-v10';
 const FILES = ['./', './index.html', './manifest.json',
-  './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
+  './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './fond.jpg', './SedgwickAveDisplay-Regular.ttf'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
