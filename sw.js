@@ -1,6 +1,6 @@
 // Transfert direct : mode hors ligne + mises à jour fiables.
-// Pour forcer une nouvelle version, change le numéro ci-dessous (v24 -> v25...).
-const CACHE = 'transfert-v24';
+// Pour forcer une nouvelle version, change le numéro ci-dessous (v25 -> v26...).
+const CACHE = 'transfert-v25';
 const ESSENTIELS = ['./', './index.html', './manifest.json'];
 const OPTIONNELS = ['./icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './fond.jpg', './SedgwickAveDisplay-Regular.ttf'];
 
