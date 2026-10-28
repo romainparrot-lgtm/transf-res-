@@ -135,11 +135,28 @@ button,.btn{font-size:18px;letter-spacing:.02em}
 li button{font-size:16px}
 .drop b{font-size:21px}
 #dlg .t{font-size:24px}
+
+/* discussion */
+#msgs{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto;margin:0 0 10px;-webkit-overflow-scrolling:touch}
+#msgs:empty{display:none}
+.msg{max-width:82%;padding:9px 13px;border-radius:18px 18px 18px 6px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);word-break:break-word;white-space:pre-wrap;align-self:flex-start;line-height:1.35;cursor:pointer}
+.msg.me{align-self:flex-end;border-radius:18px 18px 6px 18px;background:rgba(255,70,85,.22);border-color:rgba(255,120,130,.42)}
+.msg{font-size:14px;padding:7px 11px}
+.msg small{display:block;font-size:10.5px;opacity:.65;margin-top:3px;white-space:normal}
+
+/* bouton QR */
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 20px}
+.head h1{margin:0}
+#qrbtn{width:44px;min-width:44px;height:44px;min-height:44px;padding:0;display:grid;place-items:center;border-radius:14px}
+#qrbox{display:grid;justify-items:center;gap:10px;margin:10px 0 14px}
+#qrbox[hidden]{display:none}
+#qrbox svg{width:min(260px,100%);height:auto;border-radius:14px}
+#qrbox a{font-size:12px;color:var(--tx);opacity:.8;word-break:break-all;text-align:center}
 </style>
 </head>
 <body>
 <main>
-<h1>Transfert direct</h1>
+<div class="head"><h1>Transfert direct</h1><button class="sec" id="qrbtn" aria-label="Afficher le QR code de l’application"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 19h2v2h-2zM14 20h1M20 14h1" stroke-linecap="round"/></svg></button></div>
 
 <div class="card" id="linkcard">
   <div class="link"><span class="dev" id="me">Cet appareil</span><span class="wire"></span><span class="dev other" id="other">Autre appareil</span></div>
@@ -150,16 +167,26 @@ li button{font-size:16px}
 <details class="card" id="pair">
   <summary><span class="sumtitle">Associer les appareils</span><span class="sumst" id="pairsum"></span><span class="chev" aria-hidden="true"></span></summary>
   <div class="pbody">
-    <p class="state">Code de cet appareil :</p>
-    <div class="code" id="mycode"></div>
+    <p class="state">Ajouter un appareil : génère un code ici (valable 5 min, une seule utilisation), puis tape-le sur l’autre appareil.</p>
+    <div class="code" id="mycode">—</div>
+    <div class="row"><button id="invbtn">Générer un nouveau code</button></div>
     <div id="pairform">
-      <p class="state">À faire une seule fois : tape ici le code affiché sur l’autre appareil.</p>
+      <p class="state">Rejoindre un appareil : tape le code affiché chez lui.</p>
       <div class="row"><input type="text" id="codein" placeholder="Code de l’autre appareil" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="pairbtn">Associer</button></div>
     </div>
     <div id="paired" hidden>
-      <p class="state">Appareils associés. Ouvre cette page sur les deux, ils se retrouvent seuls.</p>
-      <div class="row"><button class="sec" id="forget">Oublier l’autre appareil</button></div>
+      <p class="state">Appareils autorisés (mémorisés sur cet appareil) :</p>
+      <ul id="devs"></ul>
     </div>
+  </div>
+</details>
+
+<details class="card" id="chatcard">
+  <summary><span class="sumtitle">Discussion</span><span class="sumst" id="chatsum"></span><span class="chev" aria-hidden="true"></span></summary>
+  <div class="pbody">
+  <div id="msgs"></div>
+  <p class="hint" id="chathint">Connecte les deux appareils pour discuter. Les messages disparaissent à la fermeture de la page. Touche un message pour le copier.</p>
+  <div class="row"><input type="text" id="msgin" placeholder="Écrire un message…" autocomplete="off" enterkeyhint="send" maxlength="2000"><button id="msgsend" disabled>Envoyer</button></div>
   </div>
 </details>
 
@@ -194,6 +221,7 @@ li button{font-size:16px}
 
 <div id="ov" role="dialog" aria-modal="true"><div id="dlg">
   <p class="t" id="dt"></p><p id="dx"></p>
+  <div id="qrbox" hidden><svg viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR code de l’application" shape-rendering="crispEdges"><rect width="45" height="45" fill="#fff"/><path d="M4 4h7v1h-7zM14 4h1v1h-1zM18 4h4v1h-4zM30 4h2v1h-2zM34 4h7v1h-7zM4 5h1v1h-1zM10 5h1v1h-1zM13 5h2v1h-2zM19 5h1v1h-1zM22 5h1v1h-1zM24 5h5v1h-5zM31 5h2v1h-2zM34 5h1v1h-1zM40 5h1v1h-1zM4 6h1v1h-1zM6 6h3v1h-3zM10 6h1v1h-1zM12 6h2v1h-2zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM25 6h3v1h-3zM30 6h2v1h-2zM34 6h1v1h-1zM36 6h3v1h-3zM40 6h1v1h-1zM4 7h1v1h-1zM6 7h3v1h-3zM10 7h1v1h-1zM12 7h2v1h-2zM15 7h7v1h-7zM27 7h5v1h-5zM34 7h1v1h-1zM36 7h3v1h-3zM40 7h1v1h-1zM4 8h1v1h-1zM6 8h3v1h-3zM10 8h1v1h-1zM12 8h3v1h-3zM17 8h2v1h-2zM21 8h5v1h-5zM27 8h1v1h-1zM29 8h2v1h-2zM32 8h1v1h-1zM34 8h1v1h-1zM36 8h3v1h-3zM40 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM12 9h2v1h-2zM15 9h1v1h-1zM21 9h1v1h-1zM25 9h1v1h-1zM28 9h4v1h-4zM34 9h1v1h-1zM40 9h1v1h-1zM4 10h7v1h-7zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM28 10h1v1h-1zM30 10h1v1h-1zM32 10h1v1h-1zM34 10h7v1h-7zM12 11h1v1h-1zM15 11h1v1h-1zM19 11h1v1h-1zM21 11h6v1h-6zM29 11h1v1h-1zM31 11h1v1h-1zM4 12h1v1h-1zM6 12h5v1h-5zM16 12h1v1h-1zM20 12h1v1h-1zM23 12h1v1h-1zM25 12h1v1h-1zM30 12h2v1h-2zM34 12h5v1h-5zM4 13h1v1h-1zM7 13h3v1h-3zM11 13h2v1h-2zM16 13h2v1h-2zM19 13h1v1h-1zM21 13h2v1h-2zM24 13h1v1h-1zM26 13h1v1h-1zM28 13h1v1h-1zM31 13h2v1h-2zM34 13h3v1h-3zM39 13h1v1h-1zM4 14h1v1h-1zM9 14h3v1h-3zM14 14h2v1h-2zM17 14h1v1h-1zM19 14h3v1h-3zM23 14h1v1h-1zM26 14h1v1h-1zM29 14h1v1h-1zM34 14h1v1h-1zM36 14h1v1h-1zM39 14h2v1h-2zM4 15h2v1h-2zM9 15h1v1h-1zM11 15h1v1h-1zM14 15h1v1h-1zM16 15h1v1h-1zM19 15h1v1h-1zM23 15h3v1h-3zM28 15h1v1h-1zM32 15h1v1h-1zM35 15h2v1h-2zM40 15h1v1h-1zM4 16h1v1h-1zM6 16h2v1h-2zM10 16h2v1h-2zM13 16h1v1h-1zM15 16h1v1h-1zM19 16h1v1h-1zM21 16h3v1h-3zM26 16h1v1h-1zM29 16h2v1h-2zM32 16h5v1h-5zM38 16h3v1h-3zM5 17h1v1h-1zM8 17h1v1h-1zM15 17h2v1h-2zM20 17h1v1h-1zM22 17h2v1h-2zM27 17h1v1h-1zM30 17h1v1h-1zM32 17h1v1h-1zM35 17h1v1h-1zM4 18h1v1h-1zM8 18h3v1h-3zM12 18h3v1h-3zM16 18h2v1h-2zM19 18h2v1h-2zM22 18h1v1h-1zM26 18h1v1h-1zM31 18h1v1h-1zM34 18h4v1h-4zM39 18h2v1h-2zM7 19h1v1h-1zM13 19h1v1h-1zM15 19h1v1h-1zM23 19h1v1h-1zM27 19h1v1h-1zM30 19h1v1h-1zM32 19h5v1h-5zM6 20h5v1h-5zM13 20h1v1h-1zM15 20h1v1h-1zM17 20h1v1h-1zM19 20h1v1h-1zM22 20h1v1h-1zM24 20h3v1h-3zM28 20h1v1h-1zM32 20h1v1h-1zM34 20h2v1h-2zM38 20h1v1h-1zM40 20h1v1h-1zM4 21h1v1h-1zM9 21h1v1h-1zM11 21h1v1h-1zM13 21h2v1h-2zM16 21h1v1h-1zM18 21h4v1h-4zM25 21h1v1h-1zM30 21h2v1h-2zM33 21h2v1h-2zM37 21h1v1h-1zM39 21h1v1h-1zM4 22h2v1h-2zM7 22h2v1h-2zM10 22h4v1h-4zM15 22h3v1h-3zM21 22h1v1h-1zM24 22h1v1h-1zM26 22h4v1h-4zM31 22h3v1h-3zM35 22h1v1h-1zM38 22h3v1h-3zM4 23h1v1h-1zM7 23h1v1h-1zM9 23h1v1h-1zM14 23h1v1h-1zM16 23h1v1h-1zM18 23h1v1h-1zM20 23h1v1h-1zM25 23h3v1h-3zM31 23h1v1h-1zM33 23h1v1h-1zM37 23h1v1h-1zM40 23h1v1h-1zM4 24h9v1h-9zM15 24h1v1h-1zM17 24h2v1h-2zM20 24h2v1h-2zM26 24h6v1h-6zM33 24h2v1h-2zM36 24h3v1h-3zM5 25h2v1h-2zM8 25h1v1h-1zM12 25h2v1h-2zM15 25h4v1h-4zM20 25h2v1h-2zM23 25h3v1h-3zM27 25h1v1h-1zM29 25h1v1h-1zM32 25h1v1h-1zM37 25h1v1h-1zM39 25h1v1h-1zM4 26h8v1h-8zM13 26h3v1h-3zM18 26h2v1h-2zM21 26h1v1h-1zM24 26h2v1h-2zM28 26h6v1h-6zM35 26h3v1h-3zM39 26h2v1h-2zM4 27h4v1h-4zM11 27h3v1h-3zM17 27h1v1h-1zM20 27h3v1h-3zM24 27h3v1h-3zM29 27h1v1h-1zM31 27h1v1h-1zM35 27h2v1h-2zM39 27h2v1h-2zM5 28h1v1h-1zM8 28h3v1h-3zM13 28h3v1h-3zM18 28h1v1h-1zM20 28h1v1h-1zM25 28h1v1h-1zM27 28h1v1h-1zM30 28h1v1h-1zM33 28h1v1h-1zM38 28h2v1h-2zM4 29h5v1h-5zM12 29h1v1h-1zM14 29h1v1h-1zM16 29h4v1h-4zM22 29h1v1h-1zM24 29h1v1h-1zM26 29h1v1h-1zM28 29h2v1h-2zM31 29h2v1h-2zM34 29h3v1h-3zM38 29h1v1h-1zM4 30h1v1h-1zM7 30h4v1h-4zM13 30h1v1h-1zM17 30h4v1h-4zM23 30h1v1h-1zM25 30h1v1h-1zM29 30h2v1h-2zM33 30h1v1h-1zM36 30h1v1h-1zM39 30h2v1h-2zM4 31h1v1h-1zM7 31h3v1h-3zM12 31h3v1h-3zM16 31h2v1h-2zM19 31h1v1h-1zM22 31h5v1h-5zM28 31h1v1h-1zM30 31h1v1h-1zM32 31h6v1h-6zM40 31h1v1h-1zM4 32h1v1h-1zM6 32h2v1h-2zM9 32h5v1h-5zM16 32h1v1h-1zM19 32h1v1h-1zM21 32h1v1h-1zM23 32h2v1h-2zM26 32h1v1h-1zM28 32h3v1h-3zM32 32h7v1h-7zM40 32h1v1h-1zM12 33h1v1h-1zM20 33h1v1h-1zM23 33h2v1h-2zM26 33h2v1h-2zM30 33h3v1h-3zM36 33h2v1h-2zM4 34h7v1h-7zM13 34h1v1h-1zM16 34h1v1h-1zM19 34h2v1h-2zM22 34h1v1h-1zM26 34h1v1h-1zM32 34h1v1h-1zM34 34h1v1h-1zM36 34h1v1h-1zM38 34h1v1h-1zM40 34h1v1h-1zM4 35h1v1h-1zM10 35h1v1h-1zM12 35h1v1h-1zM18 35h2v1h-2zM30 35h1v1h-1zM32 35h1v1h-1zM36 35h2v1h-2zM4 36h1v1h-1zM6 36h3v1h-3zM10 36h1v1h-1zM12 36h1v1h-1zM14 36h3v1h-3zM18 36h2v1h-2zM22 36h7v1h-7zM31 36h6v1h-6zM38 36h3v1h-3zM4 37h1v1h-1zM6 37h3v1h-3zM10 37h1v1h-1zM12 37h2v1h-2zM19 37h2v1h-2zM25 37h1v1h-1zM30 37h1v1h-1zM33 37h2v1h-2zM36 37h1v1h-1zM38 37h2v1h-2zM4 38h1v1h-1zM6 38h3v1h-3zM10 38h1v1h-1zM12 38h1v1h-1zM14 38h1v1h-1zM16 38h2v1h-2zM21 38h2v1h-2zM24 38h5v1h-5zM30 38h2v1h-2zM38 38h1v1h-1zM40 38h1v1h-1zM4 39h1v1h-1zM10 39h1v1h-1zM14 39h3v1h-3zM20 39h1v1h-1zM22 39h1v1h-1zM25 39h1v1h-1zM27 39h1v1h-1zM34 39h1v1h-1zM36 39h2v1h-2zM40 39h1v1h-1zM4 40h7v1h-7zM12 40h1v1h-1zM14 40h1v1h-1zM21 40h1v1h-1zM26 40h4v1h-4zM31 40h1v1h-1zM33 40h2v1h-2zM36 40h2v1h-2zM39 40h2v1h-2z" fill="#000"/></svg><a href="https://romainparrot-lgtm.github.io/transf-res-/">https://romainparrot-lgtm.github.io/transf-res-/</a></div>
   <div class="row"><button class="sec" id="dno">Refuser</button><button id="dyes">Accepter</button></div>
 </div></div>
 
@@ -211,24 +239,58 @@ function fmt(c){return c?c.slice(0,5)+"-"+c.slice(5):""}
 function size(n){return n<1e6?Math.max(1,Math.round(n/1e3))+" Ko":n<1e9?(n/1e6).toFixed(1)+" Mo":(n/1e9).toFixed(2)+" Go"}
 
 var myCode=sget("td_my");if(!myCode){myCode=gen();sset("td_my",myCode)}
-var partner=sget("td_partner");
-var peer=null,conn=null,pairing=null,sends={},rx={},q=Promise.resolve(),stage=[],offers={};
-$("mycode").textContent=fmt(myCode);
-$("pair").open=!partner;
-
+var partners=[];try{partners=JSON.parse(sget("td_partners")||"[]")}catch(e){}
+var oldP=sget("td_partner");if(oldP&&!partners.some(function(p){return p.c===oldP})){partners.push({c:oldP,n:"Appareil associé"});sset("td_partners",JSON.stringify(partners));sset("td_partner","")}
+var asked={},refusals={},blocked={},peer=null,conns={},tgt="",inv=null,joining=false,sends={},rx={},q=Promise.resolve(),stage=[],offers={};
+/* 4G : serveurs STUN + relais TURN pour passer les réseaux mobiles */
+var CFG={config:{iceCandidatePoolSize:4,iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"},{urls:"stun:global.stun.twilio.com:3478"},
+{urls:"turn:eu-0.turn.peerjs.com:3478",username:"peerjs",credential:"peerjsp"},{urls:"turn:us-0.turn.peerjs.com:3478",username:"peerjs",credential:"peerjsp"},
+{urls:["turn:openrelay.metered.ca:80","turn:openrelay.metered.ca:443","turn:openrelay.metered.ca:443?transport=tcp","turns:openrelay.metered.ca:443?transport=tcp"],username:"openrelayproject",credential:"openrelayproject"}]}};
+function sp(){sset("td_partners",JSON.stringify(partners))}
+function isP(c){return partners.some(function(p){return p.c===c})}
+function nameOf(c){for(var i=0;i<partners.length;i++)if(partners[i].c===c)return partners[i].n||"Appareil";return "Appareil"}
+function devName(){var u=navigator.userAgent,n=/iPhone/.test(u)?"iPhone":/iPad/.test(u)?"iPad":/Android/.test(u)?"Android":/Mac/.test(u)?"Mac":/Windows/.test(u)?"PC Windows":"Appareil";return n+" ·"+myCode.slice(0,3)}
+function opened(){return Object.keys(conns).filter(function(k){return conns[k].open})}
+function cur(){var o=opened();return tgt&&conns[tgt]&&conns[tgt].open?tgt:(o[0]||"")}
+function cc(){var k=cur();return k?conns[k]:null}
+function addPartner(code,name){
+  if(!code||code===myCode)return;
+  var p=partners.filter(function(x){return x.c===code})[0];
+  if(p)p.n=name||p.n;else partners.push({c:code,n:name||"Appareil"});
+  sp();$("pair").open=false;render();
+}
+function forget(code){
+  ask("Oublier "+nameOf(code)+" ?","Il faudra refaire l’association avec un nouveau code.","Oublier","Annuler").then(function(v){
+    if(!v)return;
+    partners=partners.filter(function(p){return p.c!==code});sp();
+    if(conns[code]){try{conns[code].close()}catch(e){}delete conns[code]}
+    render();
+  });
+}
+function drawDevs(){
+  var u=$("devs");u.innerHTML="";
+  partners.forEach(function(p){
+    var li=document.createElement("li"),n=document.createElement("div"),t=document.createElement("span"),s=document.createElement("small"),b=document.createElement("button");
+    n.className="nm";t.textContent=p.n;s.textContent=conns[p.c]&&conns[p.c].open?"Connecté":"Hors ligne";
+    n.appendChild(t);n.appendChild(s);b.className="sec";b.textContent="Oublier";b.onclick=function(){forget(p.c)};
+    li.appendChild(n);li.appendChild(b);u.appendChild(li);
+  });
+}
 function render(){
-  var ok=!!(conn&&conn.open);
+  var ok=!!cc(),k=cur(),n=opened().length;
   $("linkcard").classList.toggle("on",ok);
-  $("pairform").hidden=!!partner;$("paired").hidden=!partner;
-  $("pairsum").textContent=partner?"Associés":"À associer";
-  updStage();
+  $("paired").hidden=!partners.length;
+  $("pairsum").textContent=partners.length?partners.length+" appareil"+(partners.length>1?"s":""):"À associer";
+  $("other").textContent=k?nameOf(k)+(n>1?" ⇄":""):"Autre appareil";
+  drawDevs();updStage();$("msgsend").disabled=!ok;
   var s;
   if(!peer||peer.disconnected&&!peer.open)s="Connexion au service…";
-  else if(ok)s="Connecté à l’autre appareil.";
-  else if(partner)s="En attente de l’autre appareil (ouvre la page dessus).";
+  else if(ok)s="Connecté à "+nameOf(k)+(n>1?" (touche le nom pour changer d’appareil).":".");
+  else if(partners.length)s="En attente d’un appareil autorisé (ouvre la page dessus).";
   else s="Prêt à associer.";
   $("state").textContent=s;
 }
+$("other").onclick=function(){var o=opened();if(o.length>1){tgt=o[(o.indexOf(cur())+1)%o.length];render()}};
 function err(m){$("err").textContent=m||""}
 
 function ask(title,text,yes,no){
@@ -243,42 +305,74 @@ function ask(title,text,yes,no){
 
 function start(){
   if(typeof Peer==="undefined"){err("Connexion internet nécessaire pour charger le service de mise en relation.");return}
-  peer=new Peer(PFX+myCode);
+  peer=new Peer(PFX+myCode,CFG);
   peer.on("open",function(){err("");render();tryConnect()});
   peer.on("connection",onIncoming);
   peer.on("disconnected",function(){render();try{peer.reconnect()}catch(e){}});
   peer.on("error",function(e){
     if(e.type==="unavailable-id"){try{peer.destroy()}catch(x){}peer=null;setTimeout(start,4000)}
-    else if(e.type==="peer-unavailable"){if(pairing){err("Code introuvable : l’autre appareil doit être ouvert sur cette page.");pairing=null}}
+    else if(e.type==="peer-unavailable"){if(joining){err("Code introuvable ou expiré : génère-en un nouveau sur l’autre appareil.");joining=false}}
     else if(e.type==="network"||e.type==="server-error"||e.type==="socket-error"||e.type==="socket-closed"){err("Service de mise en relation injoignable, nouvelle tentative…")}
     render();
   });
   render();
 }
 function tryConnect(){
-  if(!peer||!peer.open||!partner||(conn&&conn.open))return;
-  attach(peer.connect(PFX+partner,{reliable:true,serialization:"raw"}),false);
+  if(!peer||!peer.open)return;
+  partners.forEach(function(p){
+    if(conns[p.c]&&conns[p.c].open)return;
+    var oc=peer.connect(PFX+p.c,{reliable:true,serialization:"raw"});oc.out=true;attach(oc);
+  });
 }
 setInterval(function(){if(!document.hidden)tryConnect()},6000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden)tryConnect()});
+/* changement de réseau (wifi <-> 4G) : on se reconnecte */
+window.addEventListener("online",function(){if(peer&&peer.disconnected){try{peer.reconnect()}catch(e){}}setTimeout(tryConnect,800)});
 
 function onIncoming(c){
-  if(partner&&c.peer!==PFX+partner){c.on("open",function(){c.close()});return}
-  attach(c,true);
+  var k=c.peer.slice(PFX.length);
+  if(blocked[k]||!isP(k)&&asked[k]){c.on("open",function(){c.close()});return}
+  attach(c);
 }
-function attach(c,incoming){
-  var known=!!partner&&c.peer===PFX+partner;
+function attach(c){
+  var code=c.peer.slice(PFX.length);
   c.on("open",function(){
-    if(known||(pairing&&c.peer===PFX+pairing)){ if(!known)tx(c,{t:"hello"}); if(known){conn=c;render()} }
+    if(c.out)tx(c,{t:"reconnect",name:devName()});
+    if(isP(code)){conns[code]=c;render()}
+    else setTimeout(function(){if(!isP(code)){try{c.close()}catch(e){}}},60000);
   });
   c.on("data",function(m){
-    if(typeof m==="string"){try{m=JSON.parse(m)}catch(e){return}onData(c,m,incoming);return}
+    if(typeof m==="string"){try{m=JSON.parse(m)}catch(e){return}onData(c,m);return}
     var r=c._cur&&rx[c._cur];
     if(r&&m&&m.byteLength!=null){r.parts.push(m);r.crc=crcUp(r.crc,new Uint8Array(m));r.got+=m.byteLength;prog(r)}
   });
-  c.on("close",function(){if(conn===c){conn=null}$("incoming").hidden=true;$("linkcard").classList.remove("xfer");render()});
+  c.on("close",function(){if(conns[code]===c)delete conns[code];$("incoming").hidden=true;$("linkcard").classList.remove("xfer");render()});
   c.on("error",function(){});
 }
+/* code d'invitation à usage unique : un nouvel appareil doit être autorisé ici */
+function closeInvite(){
+  if(inv){clearTimeout(inv.timer);try{inv.peer.destroy()}catch(e){}inv=null}
+  $("mycode").textContent="—";
+}
+function newInvite(){
+  closeInvite();
+  var code=gen(),ip=new Peer(PFX+"i"+code,CFG),me={code:code,peer:ip,used:false,timer:setTimeout(closeInvite,300000)};
+  inv=me;
+  ip.on("open",function(){if(inv===me)$("mycode").textContent=fmt(code)});
+  ip.on("error",function(){if(inv===me){closeInvite();err("Impossible de générer le code, réessaie.")}});
+  ip.on("connection",function(c){
+    c.on("data",function(m){
+      if(typeof m!=="string")return;try{m=JSON.parse(m)}catch(e){return}
+      if(m.t!=="hello"||inv!==me||me.used||norm(m.code).length!==10)return;
+      me.used=true;
+      ask("Autoriser cet appareil ?",(m.name||"Un appareil")+" demande à se connecter à celui-ci. Autorise seulement si c’est toi.","Autoriser","Refuser").then(function(v){
+        if(v){addPartner(norm(m.code),m.name);tx(c,{t:"paired",code:myCode,name:devName()});setTimeout(function(){try{c.close()}catch(e){}closeInvite();tryConnect()},800)}
+        else{tx(c,{t:"refused"});me.used=false;setTimeout(function(){try{c.close()}catch(e){}},500)}
+      });
+    });
+  });
+}
+$("invbtn").onclick=function(){err("");newInvite()};
 /*ZIP*/
 var CRC_T=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
 function crcUp(c,u8){for(var i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return c>>>0}
@@ -362,17 +456,33 @@ async function sendBatch(c,id){
   }
   $("linkcard").classList.remove("xfer");
 }
-function onData(c,m,incoming){
+function onData(c,m){
   if(!m||!m.t)return;
-  var known=!!partner&&c.peer===PFX+partner;
-  if(m.t==="hello"&&!partner&&incoming){
-    ask("Associer cet appareil ?","Un appareil demande à s’associer avec celui-ci. Accepte seulement si c’est le tien.","Associer","Refuser").then(function(v){
-      if(v){partner=c.peer.slice(PFX.length);sset("td_partner",partner);conn=c;tx(c,{t:"paired"});$("pair").open=false;render()}
-      else c.close();
-    });return;
+  var pk=c.peer.slice(PFX.length);
+  /* appareil déjà associé un jour qui redemande la connexion : on demande l'autorisation */
+  if(m.t==="reconnect"){
+    if(blocked[pk]||isP(pk)||norm(pk).length!==10||asked[pk])return;
+    asked[pk]=1;
+    ask("Autoriser cet appareil ?",(m.name||"Un appareil")+" demande à se reconnecter à celui-ci. Autorise seulement si c’est le tien.","Autoriser","Refuser").then(function(v){
+      delete asked[pk];
+      if(v){refusals[pk]=0;addPartner(pk,m.name);if(c.open){conns[pk]=c;render()}}
+      else{
+        refusals[pk]=(refusals[pk]||0)+1;
+        /* 2e refus : on dissocie les deux appareils, plus aucune demande */
+        if(refusals[pk]>=2){blocked[pk]=1;if(c.open)tx(c,{t:"unpair"});setTimeout(function(){try{c.close()}catch(e){}},600)}
+        else{try{c.close()}catch(e){}}
+      }
+    });
+    return;
   }
-  if(m.t==="paired"&&pairing&&c.peer===PFX+pairing){partner=pairing;pairing=null;sset("td_partner",partner);conn=c;err("");$("pair").open=false;render();return}
-  if(!known)return;
+  if(!isP(pk))return;
+  if(m.t==="msg"){if(typeof m.x==="string"&&m.x)addMsg(m.x.slice(0,2000),false,nameOf(pk));return}
+  if(m.t==="unpair"){
+    partners=partners.filter(function(p){return p.c!==pk});sp();
+    if(conns[pk]){delete conns[pk]}
+    try{c.close()}catch(e){}
+    err("L’autre appareil a mis fin à l’association.");render();return;
+  }
   if(m.t==="offer"){
     offers[m.id]=m.files;
     if(c.open)tx(c,{t:"yes",id:m.id});
@@ -390,14 +500,15 @@ function onData(c,m,incoming){
 $("pairbtn").onclick=function(){
   var c=norm($("codein").value);
   if(c.length!==10){err("Le code a 10 caractères.");return}
-  if(c===myCode){err("C’est le code de cet appareil : saisis celui de l’autre.");return}
   if(!peer||!peer.open){err("Connexion au service en cours, réessaie dans un instant.");return}
-  err("");pairing=c;$("state").textContent="Demande envoyée : accepte-la sur l’autre appareil…";
-  attach(peer.connect(PFX+c,{reliable:true,serialization:"raw"}),false);
-};
-$("forget").onclick=function(){
-  ask("Oublier l’autre appareil ?","Il faudra refaire l’association avec le code.","Oublier","Annuler").then(function(v){
-    if(v){partner="";sset("td_partner","");if(conn){try{conn.close()}catch(e){}conn=null}$("pair").open=true;render()}
+  err("");joining=true;$("state").textContent="Demande envoyée : autorise-la sur l’autre appareil…";
+  var jc=peer.connect(PFX+"i"+c,{reliable:true,serialization:"raw"}),done=false;
+  var to=setTimeout(function(){if(!done){joining=false;err("Pas de réponse : vérifie le code ou génères-en un nouveau.");try{jc.close()}catch(e){}render()}},60000);
+  jc.on("open",function(){tx(jc,{t:"hello",code:myCode,name:devName()})});
+  jc.on("data",function(m){
+    if(typeof m!=="string")return;try{m=JSON.parse(m)}catch(e){return}
+    if(m.t==="paired"&&norm(m.code).length===10){done=true;joining=false;clearTimeout(to);addPartner(norm(m.code),m.name);$("codein").value="";err("");setTimeout(function(){try{jc.close()}catch(e){}tryConnect()},500)}
+    else if(m.t==="refused"){done=true;joining=false;clearTimeout(to);err("L’autre appareil a refusé la connexion.");render()}
   });
 };
 $("zipall").onclick=function(){
@@ -425,7 +536,7 @@ $("clearall").onclick=function(){
 };
 
 function updStage(){
-  var ok=!!(conn&&conn.open),n=stage.length,t=0;
+  var ok=!!cc(),n=stage.length,t=0;
   stage.forEach(function(r){t+=r.file.size});
   $("sendbtn").disabled=!(ok&&n);
   $("sendbtn").textContent=n?"Envoyer ("+n+" fichier"+(n>1?"s":"")+", "+size(t)+")":"Envoyer";
@@ -450,17 +561,52 @@ $("file").onchange=function(e){
   if(fs.length)addFiles(fs);
 };
 $("sendbtn").onclick=function(){
-  if(!stage.length||!(conn&&conn.open))return;
+  if(!stage.length||!cc())return;
   var rows=stage;stage=[];
   var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   rows.forEach(function(r){r.li.classList.remove("q");r.x.hidden=true;r.st.textContent="En attente de l’autre appareil…"});
   sends[id]={rows:rows};
-  tx(conn,{t:"offer",id:id,files:rows.map(function(r){return {n:r.file.name,s:r.file.size}})});
+  tx(cc(),{t:"offer",id:id,files:rows.map(function(r){return {n:r.file.name,s:r.file.size}})});
   updStage();
 };
 $("clearsent").onclick=function(){
   Array.prototype.slice.call($("sent").children).forEach(function(li){if(!li.classList.contains("q"))li.remove()});
   updStage();
+};
+/* discussion */
+function hm(){var d=new Date(),p=function(x){return (x<10?"0":"")+x};return p(d.getHours())+":"+p(d.getMinutes())}
+function addMsg(txt,mine,who){
+  var b=document.createElement("div"),t=document.createElement("span"),sm=document.createElement("small"),box=$("msgs");
+  b.className="msg"+(mine?" me":"");t.textContent=txt;sm.textContent=(mine?"Moi":who)+" · "+hm();
+  b.appendChild(t);b.appendChild(sm);
+  b.onclick=function(){
+    function ok(){sm.textContent="Copié ✓"}
+    try{navigator.clipboard.writeText(txt).then(ok,function(){})}catch(e){var a=document.createElement("textarea");a.value=txt;document.body.appendChild(a);a.select();try{document.execCommand("copy");ok()}catch(x){}a.remove()}
+  };
+  box.appendChild(b);while(box.children.length>200)box.removeChild(box.firstChild);
+  box.scrollTop=box.scrollHeight;
+  if(!mine&&document.hidden)document.title="● Nouveau message";
+  if(!mine&&!$("chatcard").open){unread++;setUnread()}
+}
+var unread=0;
+function setUnread(){$("chatsum").textContent=unread?unread+" nouveau"+(unread>1?"x":""):""}
+$("chatcard").addEventListener("toggle",function(){if($("chatcard").open){unread=0;setUnread();$("msgs").scrollTop=$("msgs").scrollHeight}});
+function sendMsg(){
+  var v=$("msgin").value.trim(),c=cc();
+  if(!v||!c)return;
+  try{tx(c,{t:"msg",x:v.slice(0,2000)})}catch(e){err("Message non envoyé : connexion perdue.");return}
+  addMsg(v,true);$("msgin").value="";
+}
+$("msgsend").onclick=sendMsg;
+$("msgin").onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();sendMsg()}};
+var T0=document.title;
+document.addEventListener("visibilitychange",function(){if(!document.hidden)document.title=T0});
+$("qrbtn").onclick=function(){
+  $("dt").textContent="Installer l’app";$("dx").textContent="Scanne ce QR code avec l’autre appareil :";
+  $("qrbox").hidden=false;$("dno").style.display="none";$("dyes").textContent="Fermer";
+  $("ov").classList.add("on");
+  function end(){$("ov").classList.remove("on");$("qrbox").hidden=true;$("dno").style.display="";$("dyes").onclick=null}
+  $("dyes").onclick=end;
 };
 var dz=$("pick");
 ["dragenter","dragover"].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.add("over")})});
